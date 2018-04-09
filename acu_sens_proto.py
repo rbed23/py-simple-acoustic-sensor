@@ -6,37 +6,48 @@ import json, os, time, datetime
 import boto3
 #from modules import helpers as h
 import pyaudio, wave
+import numpy as np
 
-here = 'here'
+callback = True
+sending_flag = False
 
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 8000
 REC_SECONDS = 5
 RATE = 48000
 WAV_FILENAME = 'test'
 FORMAT = pyaudio.paInt16
 
-# define callback (2)
-def recording_callback(in_data, frame_count, time_info, status):
-    ### publish in_data to iot
-    data = wf.readframes(frame_count)
+np.set_printoptions(threshold=1000)
 
-    return (data, pyaudio.paContinue)
+# define callbacks
+def audio_callback(in_data, frame_count, time_info, status):
+#    print ('inside callback:', str(sending_flag))
+    if sending_flag == True:
+        global audio_iot_client
+        audio_payload = {
+            "data" : np.fromstring(in_data, dtype=np.int16).tolist(),
+	    "frame_count" : frame_count,
+	    "time_info" :  time_info,
+	    "status" : status,
+	    "stream_started" : stream_time_opened
+	    }
+	print ('publishing...')
+#        print (json.dumps(audio_payload, indent=2))
+#        audio_iot_client.publish('hala/syria/sensors/audio/test1',json.dumps(audio_payload),1)
+    return (in_data, pyaudio.paContinue)
 
 #init sound stream
 pa = pyaudio.PyAudio()
 
 for index in range(pa.get_device_count()): 
     desc = pa.get_device_info_by_index(index)
-    print (desc)
-    print (here,'1')
-    if desc["name"] == "record":
+    if desc["name"] == "default":
         print ("DEVICE: %s  INDEX:  %s  RATE:  %s " %  (desc["name"],
                                                         index,
                                                         int(desc["defaultSampleRate"])))
         mic_index = index
         print (mic_index)
     try:
-        print (here,'2')
         stream = pa.open(
             format = FORMAT,
             input = True,
@@ -44,28 +55,51 @@ for index in range(pa.get_device_count()):
             rate = RATE,
             input_device_index = int(mic_index),
             frames_per_buffer = BUFFER_SIZE,
-            stream_callback = recording_callback)
-        print (here, '3')
+	    stream_callback = audio_callback)
+
+	print ('recording from device', mic_index, '(' + json.dumps(desc) + ')')
+	stream_time_opened = time.time()
+
     except Exception as exc_err:
-        ### publish exception message stating no recording device found
+        print (str(exc_err))
+	### publish exception message stating no recording device found
     except ValueError as val_err:
-        ### publish exceptin message stating neither i/p nor o/p are set to TRUE
+        print (str(val_err))
+	### publish exceptin message stating neither i/p nor o/p are set to TRUE
 
-if stream:
+
+### for displaying streaming data
+'''
+if not callback:
+    for i in range(int(10*44100/1024)): #go for a few seconds
+        data = np.fromstring(stream.read(BUFFER_SIZE),dtype=np.int16)
+        peak=np.average(np.abs(data))*2
+        bars="#"*int(50*peak/2**16)
+        print("%04d %05d %s"%(i,peak,bars))
+'''
+if callback:
     # start the stream (4)
-    stream.start_stream()
-
-    # wait for stream to finish (5)
-    while stream.is_active():
-        time.sleep(0.1)
-    print (here, '4')
-    # stop stream (6)
-    stream.stop_stream()
-    stream.close()
-    wf.close()
+    try:
+	stream.start_stream()
+        cnt = 0
+        # wait for stream to finish (5)
+        while stream.is_active():
+           print ('streaming...')
+	   time.sleep(0.5)
+	   cnt += 1
+	   if cnt == 10:
+	       sending_flag = True
+	   elif cnt == 20:
+	       sending_flag = False
+	       cnt = 0
+    except KeyboardInterrupt:
+	# stop stream (6)
+        stream.stop_stream()
+        stream.close()
 
     # close PyAudio (7)
     pa.terminate()
+
 #run recording
 if stream:
     print('Recording...')
