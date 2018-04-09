@@ -30,25 +30,26 @@ for index in range(pa.get_device_count()):
     print (desc)
     print (here,'1')
     if desc["name"] == "record":
-            print ("DEVICE: %s  INDEX:  %s  RATE:  %s " %  (desc["name"],
-                                                            index,
-                                                            int(desc["defaultSampleRate"])))
-            mic_index = index
-        try:
-            print (here,'2')
-            stream = pa.open(
-                format = FORMAT,
-                input = True,
-                channels = 1,
-                rate = RATE,
-                input_device_index = int(mic_index),
-                frames_per_buffer = BUFFER_SIZE,
-                stream_callback = recording_callback)
-            print (here, '3')
-        except Exception as exc_err:
-            ### publish exception message stating no recording device found
-        except ValueError as val_err:
-            ### publish exceptin message stating neither i/p nor o/p are set to TRUE
+        print ("DEVICE: %s  INDEX:  %s  RATE:  %s " %  (desc["name"],
+                                                        index,
+                                                        int(desc["defaultSampleRate"])))
+        mic_index = index
+        print (mic_index)
+    try:
+        print (here,'2')
+        stream = pa.open(
+            format = FORMAT,
+            input = True,
+            channels = 1,
+            rate = RATE,
+            input_device_index = int(mic_index),
+            frames_per_buffer = BUFFER_SIZE,
+            stream_callback = recording_callback)
+        print (here, '3')
+    except Exception as exc_err:
+        ### publish exception message stating no recording device found
+    except ValueError as val_err:
+        ### publish exceptin message stating neither i/p nor o/p are set to TRUE
 
 if stream:
     # start the stream (4)
