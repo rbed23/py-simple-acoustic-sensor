@@ -2,14 +2,22 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import json, os, time, datetime
-import boto3
-#from modules import helpers as h
-import pyaudio, wave
-import numpy as np
+#basic import python libraries
+import json, os, time, sys, ssl
+import pyaudio, numpy as np, Queue, threading
+from modules import helpers as h
+from modules import iot_helpers as ioth
+from modules import pyaudio_helpers as pyah
+
+# Import AWSIoTSDK package
+#from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
+from AWSIoTPythonSDK.core.protocol.paho import client as mqtt
 
 callback = True
-sending_flag = False
+recording_flag = False
+buffer_dump_size = 5
+num_threads = 5
+iot_configuration = '/mnt/h/technology/projects/acoustic-sensor-prototype/acu_sens_config.json'
 
 BUFFER_SIZE = 8000
 REC_SECONDS = 5
@@ -19,34 +27,69 @@ FORMAT = pyaudio.paInt16
 
 np.set_printoptions(threshold=1000)
 
+# define IoT worker
+def iot_queue_worker():
+    while True:
+        try:
+            item = q.get_nowait()
+            if item is None:
+                print ("Item returned 'None' from Queue")
+                break
+        except Queue.Empty:
+            print ("Queue is empty")
+            break
+        else:
+            print ('publishing...')
+#           audio_iot_client.publish(audio_iot_device['publish_topic'], item, 1)
+            q.task_done()
+
 # define callbacks
 def audio_callback(in_data, frame_count, time_info, status):
-#    print ('inside callback:', str(sending_flag))
-    if sending_flag == True:
-        global audio_iot_client
+    # building buffer
+    if recording_flag == True:
+        print ('recording...')
         audio_payload = {
+            "id" : device['clientId'],
             "data" : np.fromstring(in_data, dtype=np.int16).tolist(),
-	    "frame_count" : frame_count,
-	    "time_info" :  time_info,
-	    "status" : status,
-	    "stream_started" : stream_time_opened
-	    }
-	print ('publishing...')
-#        print (json.dumps(audio_payload, indent=2))
-#        audio_iot_client.publish('hala/syria/sensors/audio/test1',json.dumps(audio_payload),1)
+            "frame_count" : frame_count,
+            "time_info" :  time_info,
+            "status" : status,
+            "stream_started" : stream_time_opened
+            }
+        q.put(json.dumps(audio_payload))
+    else:
+        print ('streaming...')
     return (in_data, pyaudio.paContinue)
 
-#init sound stream
+# configure IoT device client
+audio_iot_device = ioth.setup_iot_device(iot_configuration)
+
+# init IoT device client
+audio_iot_client = ioth.get_iot_client(audio_iot_device)
+
+# init sound stream
 pa = pyaudio.PyAudio()
 
-for index in range(pa.get_device_count()): 
-    desc = pa.get_device_info_by_index(index)
-    if desc["name"] == "default":
-        print ("DEVICE: %s  INDEX:  %s  RATE:  %s " %  (desc["name"],
-                                                        index,
-                                                        int(desc["defaultSampleRate"])))
-        mic_index = index
-        print (mic_index)
+# itit audio buffer queue
+q = Queue.Queue()
+
+# connect to MQTT
+audio_iot_client.connect(audio_iot_device['endpoint_url'], audio_iot_device['endpoint_port'])
+audio_iot_client.loop_start()  
+
+while not audio_iot_client.connected_flag and not audio_iot_client.bad_auth_flag:
+    print ('waiting for connection...')
+    time.sleep(2)
+    if audio_iot_client.bad_auth_flag: 
+        audio_iot_client.loop_stop()
+        sys.exit()
+
+ioth.subscriber_fx(audio_iot_client, audio_iot_device)
+
+# configure pyaudio stream
+mic_index = pyah.get_mic_index(pa)
+
+if mic_index is not None:
     try:
         stream = pa.open(
             format = FORMAT,
@@ -55,59 +98,68 @@ for index in range(pa.get_device_count()):
             rate = RATE,
             input_device_index = int(mic_index),
             frames_per_buffer = BUFFER_SIZE,
-	    stream_callback = audio_callback)
-
-	print ('recording from device', mic_index, '(' + json.dumps(desc) + ')')
-	stream_time_opened = time.time()
-
-    except Exception as exc_err:
-        print (str(exc_err))
-	### publish exception message stating no recording device found
+            stream_callback = audio_callback)
+        stream_time_opened = time.time()
+    except TypeError as typ_err:
+        print ("Type Error: " + str(typ_err))
+    ### publish exception message stating no recording device found
     except ValueError as val_err:
-        print (str(val_err))
-	### publish exceptin message stating neither i/p nor o/p are set to TRUE
+        print ("Value Error: " + str(val_err))
+    ### publish exceptin message stating neither i/p nor o/p are set to TRUE
+    except NameError as nam_err:
+        print ("Name Error: " + str(nam_err))
+    except Exception as exc_err:
+        print ("Exception Error: " + str(type(exc_err)), str(exc_err))
 
-
-### for displaying streaming data
-'''
-if not callback:
-    for i in range(int(10*44100/1024)): #go for a few seconds
-        data = np.fromstring(stream.read(BUFFER_SIZE),dtype=np.int16)
-        peak=np.average(np.abs(data))*2
-        bars="#"*int(50*peak/2**16)
-        print("%04d %05d %s"%(i,peak,bars))
-'''
-if callback:
-    # start the stream (4)
-    try:
-	stream.start_stream()
+try:
+    ### for handling streaming data    
+    if callback:
+        # start the stream (4)
+        stream.start_stream()
         cnt = 0
+        thrdcnt = 1
         # wait for stream to finish (5)
         while stream.is_active():
-           print ('streaming...')
-	   time.sleep(0.5)
-	   cnt += 1
-	   if cnt == 10:
-	       sending_flag = True
-	   elif cnt == 20:
-	       sending_flag = False
-	       cnt = 0
-    except KeyboardInterrupt:
-	# stop stream (6)
-        stream.stop_stream()
-        stream.close()
+            print ('--- ACTIVE STREAM ---')
+            time.sleep(1.0)
+            cnt += 1
+            if cnt == 10:
+                recording_flag = True
+            elif cnt == 20:
+                recording_flag = False
+                cnt = 0
 
-    # close PyAudio (7)
+            if not q.empty():
+                for i in range(num_threads):
+                    worker = threading.Thread(target=iot_queue_worker, args=(q,))
+                    worker.setDaemon(True)
+                    worker.start()
+                    print ('Started worker thread-' + thrdcnt)
+                    thrdcnt += 1
+            else:
+                thrdcnt = 1
+            threading.activeCount()
+            threading.enumerate()
+    ### for displaying streaming data
+    else:
+        for i in range(int(REC_SECONDS*RATE/BUFFER_SIZE)): #go for a few seconds
+            data = np.fromstring(stream.read(BUFFER_SIZE),dtype=np.int16)
+            peak=np.average(np.abs(data))*2
+            bars="#"*int(50*peak/2**16)
+            print("%04d %05d %s"%(i,peak,bars))
+except NameError as nam_err:
+    print ("Name Error: " + str(nam_err))
+    # stop Pyaudio (7)
     pa.terminate()
-
-#run recording
-if stream:
-    print('Recording...')
-    data_frames = []
-    for f in range(0, RATE/BUFFER_SIZE * REC_SECONDS):
-        data = stream.read(BUFFER_SIZE)
-        data_frames.append(data)
-    print('Finished recording...')
+    # stop IoT
+    audio_iot_client.loop_stop()
+    audio_iot_client.disconnect()
+except KeyboardInterrupt:
+    # stop stream (6)
     stream.stop_stream()
     stream.close()
+    # stop Pyaudio (7)
     pa.terminate()
+    # stop IoT
+    audio_iot_client.loop_stop()
+    audio_iot_client.disconnect()
