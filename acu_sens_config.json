@@ -3,9 +3,9 @@
         "awsendpoint" : "a18ku8mge40co9.iot.us-east-1.amazonaws.com",
         "awsendpoint_port" : 8883,
         "clientId" : "acuSensTest1",
-        "caPath" : "/home/rbednar/.ssh/keys/acuSens/root-CA.crt",
-        "keyPath" : "/home/rbednar/.ssh/keys/acuSens/acu_sens_test1-private.pem.key",
-        "certPath" : "/home/rbednar/.ssh/keys/acuSens/acu_sens_test1-certificate.pem.crt", 
+        "caPath" : "/home/pi/.ssh/keys/acuSens/root-CA.crt",
+        "keyPath" : "/home/pi/.ssh/keys/acuSens/acu_sens_test1-private.pem.key",
+        "certPath" : "/home/pi/.ssh/keys/acuSens/acu_sens_test1-certificate.pem.crt", 
         "subscribe_topics": [
             "test/syria/sensor/audio/<clientId>/receive"
         ],

@@ -13,7 +13,8 @@ def get_mic_index(pyaudio_pa):
                                                                 index,
                                                                 int(desc["defaultSampleRate"])))
 
-                print ('Recording from device', index, '(' + json.dumps(desc) + ')')
+                print ('Recording from device', index)
+		print (json.dumps(desc, indent = 2))
                 return index
     except UnboundLocalError as err:
         print ("Unbound Local Error: could not find microphone by indexing devices; " + str(err))
