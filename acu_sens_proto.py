@@ -16,10 +16,10 @@ from AWSIoTPythonSDK.core.protocol.paho import client as mqtt
 callback = True
 recording_flag = False
 buffer_dump_size = 5
-num_threads = 5
-iot_configuration = '/mnt/h/technology/projects/acoustic-sensor-prototype/acu_sens_config.json'
+num_threads = 2
+iot_configuration = '/opt/acoustic-sensor-prototype/acu_sens_config.json'
 
-BUFFER_SIZE = 8000
+BUFFER_SIZE = 1024
 REC_SECONDS = 5
 RATE = 48000
 WAV_FILENAME = 'test'
@@ -28,7 +28,7 @@ FORMAT = pyaudio.paInt16
 np.set_printoptions(threshold=1000)
 
 # define IoT worker
-def iot_queue_worker():
+def iot_queue_worker(q, pub_channel):
     while True:
         try:
             item = q.get_nowait()
@@ -40,8 +40,17 @@ def iot_queue_worker():
             break
         else:
             print ('publishing...')
-#           audio_iot_client.publish(audio_iot_device['publish_topic'], item, 1)
+            audio_iot_client.publish(pub_channel, item, 1)
             q.task_done()
+
+def create_workers(nthreads, q, device):
+    thrdcnt = 1
+    for i in range(nthreads):
+        worker = threading.Thread(target=iot_queue_worker, args=(q,ioth.update_pub_channel(device)))
+        worker.setDaemon(True)
+        worker.start()
+        print ('Started worker thread-' + str(thrdcnt))
+        thrdcnt += 1
 
 # define callbacks
 def audio_callback(in_data, frame_count, time_info, status):
@@ -49,16 +58,21 @@ def audio_callback(in_data, frame_count, time_info, status):
     if recording_flag == True:
         print ('recording...')
         audio_payload = {
-            "id" : device['clientId'],
+            "id" : audio_iot_device['clientId'],
             "data" : np.fromstring(in_data, dtype=np.int16).tolist(),
             "frame_count" : frame_count,
             "time_info" :  time_info,
             "status" : status,
             "stream_started" : stream_time_opened
             }
-        q.put(json.dumps(audio_payload))
+	try:
+            q.put(json.dumps(audio_payload))
+	except Queue.Full:
+	    print ("Queue is full")
+	    create_workers()
     else:
-        print ('streaming...')
+#        print ('streaming...')
+	pass
     return (in_data, pyaudio.paContinue)
 
 # configure IoT device client
@@ -130,16 +144,10 @@ try:
                 cnt = 0
 
             if not q.empty():
-                for i in range(num_threads):
-                    worker = threading.Thread(target=iot_queue_worker, args=(q,))
-                    worker.setDaemon(True)
-                    worker.start()
-                    print ('Started worker thread-' + thrdcnt)
-                    thrdcnt += 1
-            else:
-                thrdcnt = 1
-            threading.activeCount()
-            threading.enumerate()
+		create_workers(num_threads, q, audio_iot_device)
+	    print ("Size of Queue: " + str(q.qsize()))
+            print ("Number of Threads: " + str(threading.activeCount()))
+            print ("Enumerated Threads: " + str(threading.enumerate()))
     ### for displaying streaming data
     else:
         for i in range(int(REC_SECONDS*RATE/BUFFER_SIZE)): #go for a few seconds

@@ -29,7 +29,8 @@ def setup_iot_device(config_location):
             "caFile" : cfg['aws_vars']['caPath'],
             "keyFile" : cfg['aws_vars']['keyPath'],
             "certFile" : cfg['aws_vars']['certPath'],
-            "channels" : cfg['aws_vars']['subscribe_topics']
+            "in_channels" : cfg['aws_vars']['subscribe_topics'],
+	    "out_channel" : cfg['aws_vars']['publish_topic']
         }
     except Exception as exc_err:
         print ('Exception Error: Unable to setup the device based on config file')
@@ -139,7 +140,7 @@ def subscriber_fx(client, device):
     :param device: valid json object
     '''
     subscribe_list = []
-    for eachtopic in device['channels']:
+    for eachtopic in device['in_channels']:
         eachtopic = eachtopic.replace("<clientId>", device['clientId'])
         tup = (str(eachtopic), 1)
         subscribe_list.append(tup)
@@ -175,3 +176,10 @@ def subscribe_statement(client, sub_list, resp):
     print ('Subscribe: ' + client._client_id + " subscribed to the following channels:")
     for each in sub_list:
         print ("   QoS: " + str(each[1]) + " '" + each[0] + "'")
+
+def update_pub_channel(device):
+    if '<clientId>' in device['out_channel']:
+	pub_channel = device['out_channel'].replace('<clientId>', device['clientId'])
+	return pub_channel
+    else:
+	return device['out_channel']
