@@ -11,13 +11,13 @@ from modules import pyaudio_helpers as pyah
 
 '''
 ENVR VARIABLES
-Used for configuring / formatting the prototype for testing and 
+Used for configuring / formatting the prototype for testing and
 MQTT and USB mic configuration
 '''
 callback = True # will the script run streaming audio data
 recording_flag = False # will the script start recording audio data at runtime
 NUM_THREADS = 2 # number of worker threads to create for processing / publishing audio data
-iot_configuration_json = '/opt/acoustic-sensor-prototype/acu_sens_config.json' 
+iot_configuration_json = '/opt/acoustic-sensor-prototype/acu_sens_config.json'
 
 RATE = 48000 # sample rate of the USB microphone
 BUFFER_SIZE = 2048 # number of samples used to process at a time
@@ -79,8 +79,9 @@ ioth.subscriber_fx(audio_iot_client, audio_iot_device)
 
 # configure pyaudio stream
 mic_index = pyah.get_mic_index(pa)
+print (mic_index)
 if mic_index is not None:
-    stream, stream_opened_timestamp = set_stream(RATE, BUFFER_SIZE, FORMAT, mic_index, audio_callback)
+    stream, stream_opened_timestamp = pyah.set_stream(pa, RATE, BUFFER_SIZE, FORMAT, mic_index, audio_callback)
 
 try:
     ### for handling streaming data    
@@ -101,7 +102,7 @@ try:
                 cnt = 0
 
             if not q.empty():
-                h.create_workers(NUM_THREADS, q, audio_iot_device)
+                h.create_workers(NUM_THREADS, q, audio_iot_device, audio_iot_client)
                 print ("Size of Queue: " + str(q.qsize()))
                 print ("Number of Threads: " + str(threading.activeCount()))
                 print ("Enumerated Threads: " + str(threading.enumerate()))

@@ -18,16 +18,18 @@ def get_mic_index(pa):
                                                                 index,
                                                                 int(desc["defaultSampleRate"])))
                 print ('Recording from device', index)
-		print (json.dumps(desc, indent = 2))
                 return index
     except UnboundLocalError as err:
         print ("Unbound Local Error: could not find microphone by indexing devices; " + str(err))
     except Exception as exc_err:
         print ("Exception Error: could not find microphone by indexing devices; " + str(type(exc_err) + str(exc_err)))
 
-def set_stream(rate, buffer, paformat, mic, cb):
+def set_stream(pa, rate, buffer, paformat, mic, cb):
     '''
     Initialize and open portaudio stream
+
+    :type pa: pyaudio portaudio object
+    :param pa: none
 
     :type rate: int
     :param rate: default mic sample rate

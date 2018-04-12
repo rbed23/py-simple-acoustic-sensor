@@ -2,6 +2,8 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import json, random, string, base64, time
+import threading, Queue
+from modules import iot_helpers as ioth
 
 def audio_processing(adi):
     '''
@@ -70,7 +72,7 @@ def iot_queue_worker(client, q, channel):
             print ("Queue is empty")
             break
         else:
-            print ('processing now...')
+            print ('processing...')
             processed_item = audio_processing(item) # placeholder function, does nothing now
             print ('publishing...')
             client.publish(channel, processed_item, 1)
@@ -79,11 +81,11 @@ def iot_queue_worker(client, q, channel):
 def close_application(pa=False, iot_client=False, stream=False):
     '''
     Gracefully stop and close all open object(s) and client(s)
-    
+
     :type pa: pyaudio portaudio object
     :type iot_client: AWS IoT paho client
     :type stream: pyaudio portaudio object wrapper
-    '''  
+    '''
     print ('Closing application...')
     if stream:
         print ('Stopping and closing stream...')
@@ -117,25 +119,24 @@ def create_stream_event_envelope(payload,source_id,event_type,lambda_uid):
     :type envelope: dict object
     :params envelope: envelope in the following format
     {
-        "pkey"       : str<pkey>,                                                                            
-        "createtime" : int<createtime>,                                                                      
-        "src"        : str<source_id>,                                                                       
-        "type"       : str<event_type>,                                                                      
+        "pkey"       : str<pkey>,
+        "createtime" : int<createtime>,
+        "src"        : str<source_id>,
+        "type"       : str<event_type>,
         "data"       : dict<payload>
     }
     '''
-    createtime = int(round(time.time()*1000))                                                       
-    object_hash = hash(json.dumps(payload));             
+    createtime = int(round(time.time()*1000))
+    object_hash = hash(json.dumps(payload));
     event_id = source_id+'-'+lambda_uid+'-'+str(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6)))
-    partitionKey = ':'.join(map(str,[createtime, event_type, event_id, object_hash])) 
-    envelope = {                                                                                 
-        "pkey"       : partitionKey,                                                                            
-        "createtime" : createtime,                                                                      
-        "src"        : source_id,                                                                       
-        "type"       : event_type,                                                                      
-        "data"       : payload                                                                          
-    }                                                                                              
-
+    partitionKey = ':'.join(map(str,[createtime, event_type, event_id, object_hash]))
+    envelope = {
+        "pkey"       : partitionKey,
+        "createtime" : createtime,
+        "src"        : source_id,
+        "type"       : event_type,
+        "data"       : payload
+    }
     return envelope
 
 def kinesis_put(client,data,stream_name,partition_key):
