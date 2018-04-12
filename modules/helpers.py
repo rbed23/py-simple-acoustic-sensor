@@ -1,8 +1,102 @@
 '''Contains useful modules for the Acoustic Sensors Prototype Device'''
 #!/usr/bin/env python
 from __future__ import print_function
-import json, random, string, base64
-import time, datetime
+import json, random, string, base64, time
+
+def audio_processing(adi):
+    '''
+    Process and normalize audio data item
+    :type adi: list
+    :param adi: raw, pyaudio-formatted, audio data samples
+
+    :return:
+    :type padi: list
+    :param padi: processed pyaudio data item
+    '''
+    padi = adi
+    return padi
+
+# create worker threads
+def create_workers(nthreads, q, device, client):
+    '''
+    Create threads to work on job(s)
+
+    :type nthreads: int
+    :param nthreads: none
+
+    :type q: Queue object
+    :param q: infinite-sized Queue (maxsize = 0)
+
+    :type device: dict
+    :param device: device['clientId'] must exist
+
+    :type client: AWS IoT client instance
+    :param client: none
+    '''
+    for i in range(nthreads):
+        # assign worker to execute iot_queue_worker job
+        worker = threading.Thread(
+                    target = iot_queue_worker, args = (
+                                                    client,
+                                                    q,
+                                                    ioth.update_channel(
+                                                        device['out_channel'],
+                                                        device['clientId'])))
+        worker.setDaemon(True) # daemon ends thread at end of job
+        worker.start() # start worker on job
+        print ('Started worker thread...')
+
+# define IoT worker job
+def iot_queue_worker(client, q, channel):
+    '''
+    Worker threads execute within this function
+
+    :type client: AWS IoT client instance
+    :param client: none
+
+    :type q: Queue object
+    :param q: infinite-sized Queue (maxsize = 0)
+
+    :type channel: str
+    :param channel: valid AWS IoT topic string
+    '''
+    while True:
+        try:
+            item = q.get_nowait()
+            if item is None:
+                print ("Item returned 'None' from Queue")
+                break
+        except Queue.Empty:
+            print ("Queue is empty")
+            break
+        else:
+            print ('processing now...')
+            processed_item = audio_processing(item) # placeholder function, does nothing now
+            print ('publishing...')
+            client.publish(channel, processed_item, 1)
+            q.task_done()
+
+def close_application(pa=False, iot_client=False, stream=False):
+    '''
+    Gracefully stop and close all open object(s) and client(s)
+    
+    :type pa: pyaudio portaudio object
+    :type iot_client: AWS IoT paho client
+    :type stream: pyaudio portaudio object wrapper
+    '''  
+    print ('Closing application...')
+    if stream:
+        print ('Stopping and closing stream...')
+        stream.stop_stream()
+        stream.close()
+    if pa:
+        print ("Terminating Pyaudio object...")
+        pa.terminate()
+    if iot_client:
+        print ("Stopping loop and disconnecting MQTT client...")
+        iot_client.loop_stop()
+        iot_client.disconnect()
+    print ('Application CLOSED')
 
 def create_stream_event_envelope(payload,source_id,event_type,lambda_uid):
     '''

@@ -1,26 +1,26 @@
 '''Contains useful modules for the Acoustic Sensors Prototype Device'''
 #!/usr/bin/env python
 from __future__ import print_function
-import json, ssl
+import json, sys, ssl
 from AWSIoTPythonSDK.core.protocol.paho import client as mqtt
 
 ### setup IoT client
-def setup_iot_device(config_location):
+def setup_iot_device(config):
     '''
-    Setup and config IoT client for AWS
-    :type config: dict object
-    :param config: none
+    Setup and config IoT device configuration for AWS
+    :type config: str
+    :param config: directory path to config file
 
     :return:
-    :type iot_client: AWS IoT client
-    :param iot_client: none
+    :type device: dict
+    :param device: none
     '''
     try:
-        with open(config_location, 'rb') as j:
+        with open(config, 'rb') as j:
             cfg = json.load(j)
     except Exception as exc_err:
-        print ('Exception Error: Unable to open and load configuration file from location')
-        print (str(exc_err))
+        print ('Exception Error: Unable to open and load configuration file from location;', str(exc_err))
+        sys.exit()
     try:
         device = {
             "endpoint_url" : cfg['aws_vars']['awsendpoint'],
@@ -30,23 +30,32 @@ def setup_iot_device(config_location):
             "keyFile" : cfg['aws_vars']['keyPath'],
             "certFile" : cfg['aws_vars']['certPath'],
             "in_channels" : cfg['aws_vars']['subscribe_topics'],
-	    "out_channel" : cfg['aws_vars']['publish_topic']
+	        "out_channel" : cfg['aws_vars']['publish_topic']
         }
     except Exception as exc_err:
-        print ('Exception Error: Unable to setup the device based on config file')
-        print (str(exc_err))
+        print ('Exception Error: Unable to setup the device based on config file;', str(exc_err))
+        sys.exit()
     else:
         return device
 
 def get_iot_client(device):
-    client = mqtt.Client(device['clientId'])
-    #set flags
-    client.bad_connection_flag = False
-    client.bad_auth_flag = False
-    client.connected_flag = False
-    client.disconnected_flag = False
+    '''
+    Setup and config AWS IoT client
+    :type device: dict object
+    :param device: with relevant k-v pairs needed to setup client
 
+    :return:
+    :type client: AWS IoT client
+    :param client: none
+    '''
     try:
+        client = mqtt.Client(device['clientId'])
+        #set flags
+        client.bad_connection_flag = False
+        client.bad_auth_flag = False
+        client.connected_flag = False
+        client.disconnected_flag = False
+
         client.on_connect = onConnect
         client.on_disconnect = onDisconnect
         client.on_message = onMessage
@@ -54,22 +63,25 @@ def get_iot_client(device):
         #client.on_subscribe = onSubscribe
         #client.on_unsubscribe = onUnsubscribe
         #client.on_log = onLog
+    except TypeError as typ_err:
+        print ('Type Error:', str(typ_err))
+        print ('   Look at IoT device configuration location and settings')
     except: 
         print ('Exception Error: error binding callbacks to MQTT Client')
-
-    try:
-        client.tls_set(
-            ca_certs=device['caFile'],
-            certfile=device['certFile'],
-            keyfile=device['keyFile'],
-            cert_reqs=ssl.CERT_REQUIRED,
-            tls_version=ssl.PROTOCOL_SSLv23,
-            ciphers=None)
-    except Exception as exc_err:
-        print ('Exception Error: error setting tls credentials')
-        print (str(exc_err))
     else:
-        return client
+        try:
+            client.tls_set(
+                ca_certs=device['caFile'],
+                certfile=device['certFile'],
+                keyfile=device['keyFile'],
+                cert_reqs=ssl.CERT_REQUIRED,
+                tls_version=ssl.PROTOCOL_SSLv23,
+                ciphers=None)
+        except Exception as exc_err:
+            print ('Exception Error: error setting tls credentials;', str(exc_err))
+            sys.exit()
+        else:
+            return client
 
 # Initialize the MQTT on_connect callback function
 def onConnect(client,userdata,flags,rc):
@@ -136,13 +148,13 @@ def subscriber_fx(client, device):
     :type client: mqtt paho Client instance
     :param client: Client instance that wants to subscribe to broker
 
-    :type device: json object
-    :param device: valid json object
+    :type device: dict object
+    :param device: valid dict object
     '''
     subscribe_list = []
-    for eachtopic in device['in_channels']:
-        eachtopic = eachtopic.replace("<clientId>", device['clientId'])
-        tup = (str(eachtopic), 1)
+    for eachchannel in device['in_channels']:
+        channel = update_channel(eachchannel, device['clientId'])
+        tup = (str(channel), 1)
         subscribe_list.append(tup)
     
     if len(subscribe_list) <= 8:
@@ -177,9 +189,9 @@ def subscribe_statement(client, sub_list, resp):
     for each in sub_list:
         print ("   QoS: " + str(each[1]) + " '" + each[0] + "'")
 
-def update_pub_channel(device):
-    if '<clientId>' in device['out_channel']:
-	pub_channel = device['out_channel'].replace('<clientId>', device['clientId'])
-	return pub_channel
+def update_channel(channel, id):
+    if '<clientId>' in channel:
+	    upd_channel = channel.replace('<clientId>', id)
+	    return upd_channel
     else:
-	return device['out_channel']
+	    return channel
