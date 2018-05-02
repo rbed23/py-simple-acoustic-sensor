@@ -1,7 +1,7 @@
 '''Contains useful modules for the Acoustic Sensors Prototype Device'''
 #!/usr/bin/env python
 from __future__ import print_function
-import time
+import time,json
 
 def get_mic_index(pa):
     '''
@@ -11,20 +11,21 @@ def get_mic_index(pa):
     :param pa: none
     '''
     try:
-        for index in range(pa.get_device_count()): 
+        for index in range(pa.get_device_count()):
             desc = pa.get_device_info_by_index(index)
             if desc["name"] == "default":
                 print ("DEVICE: %s  INDEX:  %s  RATE:  %s " %  (desc["name"],
                                                                 index,
                                                                 int(desc["defaultSampleRate"])))
                 print ('Recording from device', index)
-                return index
+                return index, desc
     except UnboundLocalError as err:
         print ("Unbound Local Error: could not find microphone by indexing devices; " + str(err))
     except Exception as exc_err:
         print ("Exception Error: could not find microphone by indexing devices; " + str(type(exc_err) + str(exc_err)))
 
 def set_stream(pa, rate, buffer, paformat, mic, cb):
+#def set_stream(pa, rate, buffer, paformat, mic):
     '''
     Initialize and open portaudio stream
 
@@ -35,7 +36,7 @@ def set_stream(pa, rate, buffer, paformat, mic, cb):
     :param rate: default mic sample rate
 
     :type buffer: int
-    :param buffer: multiples of 1024
+    :param buffer: int should be power of 2
 
     :type format: portaudio sample format
     :param format: paFloat32, paInt32, paInt24, paInt16, paInt8, paUInt8, paCustomFormat
@@ -62,6 +63,7 @@ def set_stream(pa, rate, buffer, paformat, mic, cb):
             input_device_index = mic, # gets mic location
             frames_per_buffer = buffer, # USB mic framerate
             stream_callback = cb) # sets up callback f(x)
+#            )# sets up callback f(x)
         opened_ts = time.time() # stream opened, lifetime begins
     except TypeError as typ_err:
         print ("Type Error: " + str(typ_err)) # no recording device found

@@ -1,22 +1,49 @@
 '''Contains useful modules for the Acoustic Sensors Prototype Device'''
 #!/usr/bin/env python
 from __future__ import print_function
-import json, random, string, base64, time
-import threading, Queue
+import json, random, string, base64, time, sys
+import threading, Queue, numpy as np
 from modules import iot_helpers as ioth
+#from rpi_audio_levels import AudioLevels
 
 def audio_processing(adi):
     '''
     Process and normalize audio data item
-    :type adi: list
+
+    :type adi: str
     :param adi: raw, pyaudio-formatted, audio data samples
 
     :return:
-    :type padi: list
+    :type padi: str
     :param padi: processed pyaudio data item
     '''
-    padi = adi
-    return padi
+    ### set useful vars
+    jadi = json.loads(adi)
+    raw_data = jadi['raw_data']
+    sample_rate = int(jadi['sample_rate'])
+    frame_cnt = int(jadi['frame_count'])
+
+    '''Below grabbed from this site: https://plot.ly/matplotlib/fft/'''
+
+    ### setup fft vars
+    jadi['sample_time_ms'] = float(frame_cnt) / float(sample_rate) * 1000
+    np_data = np.array(raw_data, dtype=np.int16)
+    signal_len = len(np_data)
+    num_samples_sec = float(sample_rate) / float(frame_cnt)
+
+    ### get Nyquist freq range (also F / 2)
+    frqs = np.arange(frame_cnt)
+    freq_range = frqs[range(signal_len / 2)] * (float(sample_rate) / float(frame_cnt))
+
+    ### get FFT coefficient data and normalize
+    fftdata = np.fft.rfft(np_data) / signal_len
+    fftdata_abs = np.abs(fftdata)
+    jadi['fft_data'] = np.array(fftdata_abs).tolist()
+    jadi['fft_max_idx'] = np.argmax(fftdata_abs)
+    jadi['fft_max_freq_calcd'] = np.argmax(fftdata_abs) * num_samples_sec
+    jadi['fft_max_freq_indxd'] = freq_range[int(jadi['fft_max_idx'])]
+
+    return json.dumps(jadi)
 
 # create worker threads
 def create_workers(nthreads, q, device, client):
@@ -73,7 +100,7 @@ def iot_queue_worker(client, q, channel):
             break
         else:
             print ('processing...')
-            processed_item = audio_processing(item) # placeholder function, does nothing now
+            processed_item = audio_processing(item)
             print ('publishing...')
             client.publish(channel, processed_item, 1)
             q.task_done()
