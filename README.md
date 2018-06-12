@@ -13,7 +13,7 @@ __Installs__
 1. **Python 2.7** via [python software foundation](https://www.python.org/downloads/)
 2. **AWSIoTPythonSDK** via [aws-iot-device-sdk-python on github] (https://github.com/aws/aws-iot-device-sdk-python)
 - allows developers to write Python script to access / control devices via the AWS IoT platform
-2. **RPI_Audio_Levels** via [rpi-audio-levels on github] (https://github.com/colin-guyon/rpi-audio-levels)
+2. **RPI Audio Levels** via [rpi-audio-levels on github] (https://github.com/colin-guyon/rpi-audio-levels)
 - this script also uses the GPU FFT library installed on RPi (see [link](http://www.aholme.co.uk/GPU_FFT/Main.htm))
 
 __Imports__
@@ -22,7 +22,7 @@ __Imports__
 2. Numpy
 3. Queue
 4. Threading
-5. Cython (if installing RPI_Audio_Levels library, below)
+5. Cython (if installing RPI Audio Levels library, above)
 
 __Security Credentials__
 
@@ -37,15 +37,19 @@ __Hardware Used__
 
 ## Configuration
 
-_acu_sens_config.json_
+### _acu_sens_config.json_
 
-__keys__
+__Keys__
 
 - aws_vars (mandatory): necessary to connect to Hala AWS endpoint broker
-- '<clientId>' in *_topics replaces the <clientId> string with the actual 'clientId' key-value
-- notes (not mandatory): used only to document troubleshooting to possible issues 
+- notes (not mandatory): used only to document troubleshooting to possible issues
 
-_acu_sens_prototype.py_
+__Values__
+
+- '<clientId>' in *_topics replaces the <clientId> string with the actual 'clientId' key-value
+
+
+### _acu_sens_prototype.py_
 
 __ENVR VARS__
 
