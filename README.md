@@ -1,45 +1,63 @@
-**Edit a file, create a new file, and clone from Bitbucket in under 2 minutes**
-
-When you're done, you can delete the content in this README and update the file with details for others getting started with your repository.
-
-*We recommend that you open this README in another tab as you perform the tasks below. You can [watch our video](https://youtu.be/0ocf7u76WSo) for a full demo of all the steps in this tutorial. Open the video in a new tab to avoid leaving Bitbucket.*
-
+# acoustic-sensor-prototype
 ---
+## Description
 
-## Edit a file
+Sets up secure audio streaming, sampling, processing, and publishing on a Raspberry Pi communicating over AWS IoT via MQTT protocol.
 
-You’ll start by editing this README file to learn how to edit a file in Bitbucket.
+## Dependencies and Package Requirements
 
-1. Click **Source** on the left side.
-2. Click the README.md link from the list of files.
-3. Click the **Edit** button.
-4. Delete the following text: *Delete this line to make a change to the README from Bitbucket.*
-5. After making your change, click **Commit** and then **Commit** again in the dialog. The commit page will open and you’ll see the change you just made.
-6. Go back to the **Source** page.
+The following installations and imports are required to run this application.
 
----
+__Installs__
 
-## Create a file
+1. **Python 2.7** via [python software foundation](https://www.python.org/downloads/)
+2. **AWSIoTPythonSDK** via [aws-iot-device-sdk-python on github] (https://github.com/aws/aws-iot-device-sdk-python)
+- allows developers to write Python script to access / control devices via the AWS IoT platform
+2. **RPI_Audio_Levels** via [rpi-audio-levels on github] (https://github.com/colin-guyon/rpi-audio-levels)
+- this script also uses the GPU FFT library installed on RPi (see [link](http://www.aholme.co.uk/GPU_FFT/Main.htm))
 
-Next, you’ll add a new file to this repository.
+__Imports__
 
-1. Click the **New file** button at the top of the **Source** page.
-2. Give the file a filename of **contributors.txt**.
-3. Enter your name in the empty file space.
-4. Click **Commit** and then **Commit** again in the dialog.
-5. Go back to the **Source** page.
+1. Pyaudio
+2. Numpy
+3. Queue
+4. Threading
+5. Cython (if installing RPI_Audio_Levels library, below)
 
-Before you move on, go ahead and explore the repository. You've already seen the **Source** page, but check out the **Commits**, **Branches**, and **Settings** pages.
+__Security Credentials__
 
----
+1. Certificate Authority (AWS) Certificate File
+2. Private Key File
+3. _Activated_ Certificate File
 
-## Clone a repository
+__Hardware Used__
 
-Use these steps to clone from SourceTree, our client for using the repository command-line free. Cloning allows you to work on your files locally. If you don't yet have SourceTree, [download and install first](https://www.sourcetreeapp.com/). If you prefer to clone from the command line, see [Clone a repository](https://confluence.atlassian.com/x/4whODQ).
+1. Raspberry Pi 3 Model B
+2. Snopy Rampage SN-RM7X USB Microphone
 
-1. You’ll see the clone button under the **Source** heading. Click that button.
-2. Now click **Check out in SourceTree**. You may need to create a SourceTree account or log in.
-3. When you see the **Clone New** dialog in SourceTree, update the destination path and name if you’d like to and then click **Clone**.
-4. Open the directory you just created to see your repository’s files.
+## Configuration
 
-Now that you're more familiar with your Bitbucket repository, go ahead and add a new file locally. You can [push your change back to Bitbucket with SourceTree](https://confluence.atlassian.com/x/iqyBMg), or you can [add, commit,](https://confluence.atlassian.com/x/8QhODQ) and [push from the command line](https://confluence.atlassian.com/x/NQ0zDQ).
+_acu_sens_config.json_
+
+__keys__
+
+- aws_vars (mandatory): necessary to connect to Hala AWS endpoint broker
+- '<clientId>' in *_topics replaces the <clientId> string with the actual 'clientId' key-value
+- notes (not mandatory): used only to document troubleshooting to possible issues 
+
+_acu_sens_prototype.py_
+
+__ENVR VARS__
+
+- callback: will the script use the pyaudio stream callback feature or not
+- recording_flag: used if callback == True, start recording immediately at runtime or wait
+- NUM_THREADS: if callback == True, indicate how many workers to create for processing streaming audio data
+- REC_SECONDS: if callback != True, run the script for a number of seconds
+- iot_config_json: /path/to/config.json string
+
+__Pyaudio and FFT VARS__
+
+- RATE: sample rate of the microphone in Hz
+- DATA_SIZE: sets the sample size of the buffer (base 2 exponential --> 2^X)
+- BUFFER_SIZE: actual number of samples in the buffer
+- FORMAT: Pyaudio data format of samples
