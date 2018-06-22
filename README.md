@@ -9,8 +9,9 @@ Sets up secure audio streaming, sampling, processing, and publishing on a Raspbe
 The following installations and imports are required to run this application.
 
 __Helpful Guides__
-    [AWS IoT Development Guide] (https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html): Describe the basic features and hierachy of AWS IoT
-    [Git Guide] (https://www.atlassian.com/git/tutorials): Helpful Git commands
+
+1. [AWS IoT Development Guide](https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html): Describe the basic features and hierachy of AWS IoT
+2. [Git Guide](https://www.atlassian.com/git/tutorials): Helpful Git commands
 
 __Installs__
 
