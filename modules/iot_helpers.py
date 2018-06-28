@@ -30,7 +30,7 @@ def setup_iot_device(config):
             "keyFile" : cfg['aws_vars']['keyPath'],
             "certFile" : cfg['aws_vars']['certPath'],
             "in_channels" : cfg['aws_vars']['subscribe_topics'],
-	        "out_channel" : cfg['aws_vars']['publish_topic']
+	    "out_channel" : cfg['aws_vars']['publish_topic']
         }
     except Exception as exc_err:
         print ('Exception Error: Unable to setup the device based on config file;', str(exc_err))
@@ -156,11 +156,11 @@ def subscriber_fx(client, device):
         channel = update_channel(eachchannel, device['clientId'])
         tup = (str(channel), 1)
         subscribe_list.append(tup)
-    
+
     if len(subscribe_list) <= 8:
         sub_resp = client.subscribe(subscribe_list)
         subscribe_statement(client, subscribe_list, sub_resp)
-    else:
+    else: # can only subscribe to max 8 topics at a time in a single call
         subscribe_chunks = [subscribe_list[x:x+8] for x in xrange(0, len(subscribe_list), 8)]
         for each_chunk in subscribe_chunks:
             sub_resp = client.subscribe(each_chunk)
