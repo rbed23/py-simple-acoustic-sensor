@@ -1,18 +1,17 @@
 {
-    "aws_vars" : {
-        "awsendpoint" : "random-char-string.iot.us-east-1.amazonaws.com",
-        "awsendpoint_port" : 8883,
-        "clientId" : "valid-client-id",
-        "caPath" : "/path/to/ca-certfile/root-CA.crt",
-        "keyPath" : "/path/to/private/keyfile/private.pem.key",
-        "certPath" : "/path/to/certificatefile/certificate.pem.crt", 
+    "aws_vars": {
+        "awsendpoint": "[AWS-IOT-ENDPOINT-DESIGNATOR-STR].iot.[AWS-REGION].amazonaws.com",
+        "awsendpoint_port": 8883,
+        "clientId": "[DEVICE-CLIENT-ID]",
+        "caPath": "PATH/TO/root-CA.crt",
+        "keyPath": "PATH/TO/private.pem.key",
+        "certPath": "PATH/TO/certificate.pem.crt",
         "subscribe_topics": [
-            "test/sensor/audio/<clientId>/receive"
+            "sensor/audio/receive",
+            "<clientId>"
         ],
-        "publish_topic" : "test/sensor/audio/<clientId>/publish"
-    },
-    "notes" : {
-        "1" : "if unable to open config.json file, check that there have not been any edits to the config.json file keys",
-        "2" : "if repeating onDisconnect callback, check 'thing' certificate policy settings and/or if the certificate is activated"
+        "publish_topics": [
+            "test/sensor/audio/publish/<clientId>"
+        ]
     }
 }

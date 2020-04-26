@@ -1,193 +1,194 @@
 '''Contains useful modules for the Acoustic Sensors Prototype Device'''
-#!/usr/bin/env python
+# !/usr/bin/env python
 from __future__ import print_function
-import json, random, string, base64, time, sys
-import threading, Queue, numpy as np
 from modules import iot_helpers as ioth
-#from rpi_audio_levels import AudioLevels
+import numpy as np
+import json
+import queue
+import sys
+import threading
 
-def audio_processing(adi):
+
+def audio_analysis_detect(audio_item):
     '''
-    Process and normalize audio data item
+    Analyze audio data item to detect and flag to publish
 
-    :type adi: str
-    :param adi: raw, pyaudio-formatted, audio data samples
+    :type audio_item: str
+    :param audio_item: raw, pyaudio-formatted, audio data samples
 
     :return:
-    :type padi: str
-    :param padi: processed pyaudio data item
+    :type analyzed_item: TBD
+    :param analyzed_item: TBD
     '''
-    ### set useful vars
-    jadi = json.loads(adi)
-    raw_data = jadi['raw_data']
-    sample_rate = int(jadi['sample_rate'])
-    frame_cnt = int(jadi['frame_count'])
+    publish = False
+
+    # do something here to detect interest in FFT response
+    # set publish to True
+    publish = True
+    if publish:
+        return audio_item
+    else:
+        return None
+
+
+def audio_transformation(adi):
+    '''
+    Normalized and Transformed audio data item (adi)
+
+    <type adi: dict
+    <desc adi: json formatted raw, pyaudio-formatted, audio data samples
+
+    <<type tformed_adi>> dict
+    <<desc tformed_adi>> processed pyaudio data item
+    '''
+    tformed_adi = adi
+    raw_data = tformed_adi['raw_data']
+    frame_cnt = tformed_adi['frame_count']
+    sample_rate = tformed_adi['sample_rate ']
 
     '''Below grabbed from this site: https://plot.ly/matplotlib/fft/'''
 
-    ### setup fft vars
-    jadi['sample_time_ms'] = float(frame_cnt) / float(sample_rate) * 1000
+    # setup fft vars
+    tformed_adi['sample_time_ms'] = frame_cnt / sample_rate * 1000
     np_data = np.array(raw_data, dtype=np.int16)
     signal_len = len(np_data)
-    num_samples_sec = float(sample_rate) / float(frame_cnt)
+    num_samples_sec = sample_rate / frame_cnt
 
-    ### get Nyquist freq range (also F / 2)
+    # get Nyquist freq range (also F / 2)
     frqs = np.arange(frame_cnt)
-    freq_range = frqs[range(signal_len / 2)] * (float(sample_rate) / float(frame_cnt))
+    freq_range = frqs[range(signal_len / 2)] * num_samples_sec
 
-    ### get FFT coefficient data and normalize
+    # get FFT coefficient data and normalize
     fftdata = np.fft.rfft(np_data) / signal_len
     fftdata_abs = np.abs(fftdata)
-    jadi['fft_data'] = np.array(fftdata_abs).tolist()
-    jadi['fft_max_idx'] = np.argmax(fftdata_abs)
-    jadi['fft_max_freq_calcd'] = np.argmax(fftdata_abs) * num_samples_sec
-    jadi['fft_max_freq_indxd'] = freq_range[int(jadi['fft_max_idx'])]
+    tformed_adi['fft_data'] = np.array(fftdata_abs).tolist()
+    tformed_adi['max_idx'] = int(np.argmax(fftdata_abs))
+    tformed_adi['max_freq'] = np.argmax(fftdata_abs) * num_samples_sec
+    tformed_adi['max_freq_idx'] = freq_range[tformed_adi['max_idx']]
 
-    return json.dumps(jadi)
+    return tformed_adi
 
-# create worker threads
-def create_workers(nthreads, q, device, client):
+
+def create_workers(q_get, q_put, nthreads=1, device=None, client=None):
     '''
     Create threads to work on job(s)
 
-    :type nthreads: int
-    :param nthreads: none
+    <type q_get> Queue object
+    <desc q_get> non-empty queue
 
-    :type q: Queue object
-    :param q: infinite-sized Queue (maxsize = 0)
+    <type q_put> Queue object
+    <desc q_put> non-full queue
 
-    :type device: dict
-    :param device: device['clientId'] must exist
+    <type nthreads> int
+    <desc nthreads> number of threads being created
 
-    :type client: AWS IoT client instance
-    :param client: none
+    <type device> dict
+    <desc device> detailed device configuration
+
+    <type client> AWS IoT Client
+    <desc client> none
     '''
     for i in range(nthreads):
-        # assign worker to execute iot_queue_worker job
-        worker = threading.Thread(
-                    target = iot_queue_worker, args = (
-                                                    client,
-                                                    q,
-                                                    ioth.update_channel(
-                                                        device['out_channel'],
-                                                        device['clientId'])))
-        worker.setDaemon(True) # daemon ends thread at end of job
-        worker.start() # start worker on job
-        print ('Started worker thread...')
+        if device is None and client is None:
+            # process data and put into analysis Q
+            worker = threading.Thread(
+                        target=queue_worker_fft_process,
+                        args=(q_get, q_put)
+                        )
+        else:
+            # analyze data and publish
+            worker = threading.Thread(
+                        target=queue_worker_fft_analyze,
+                        args=(q_get,
+                              device,
+                              client)
+                        )
+        worker.setDaemon(True)  # daemon ends thread at end of job
+        worker.start()  # start worker on job
+        print('Started worker for thread...')
 
-# define IoT worker job
-def iot_queue_worker(client, q, channel):
+
+# defines analyzer worker job
+def queue_worker_fft_process(q1, q2):
     '''
     Worker threads execute within this function
 
-    :type client: AWS IoT client instance
-    :param client: none
+    <type q1> Queue object
+    <desc q1> queue to take input
 
-    :type q: Queue object
-    :param q: infinite-sized Queue (maxsize = 0)
+    <type q2> Queue object
+    <desc q2> queue to put results
+    '''
+    while True:
+        try:
+            item = q1.get_nowait()
+            if item is None:
+                print("Item returned 'None' from Queue")
+        except queue.Empty as empty_q:
+            print(f"Queue is empty\n{empty_q}")
+        else:
+            print('processing...')
+            q2.put(audio_transformation(item))  # fft of audio data
+        finally:
+            q2.task_done()
+            q1.task_done()
 
-    :type channel: str
-    :param channel: valid AWS IoT topic string
+
+# define IoT worker job
+def queue_worker_fft_analyze(q, device, client):
+    '''
+    Worker threads execute within this function
+
+    <type q> Queue object
+    <desc q> infinite-sized Queue (maxsize = 0)
+
+    <type device> dict
+    <desc device> detailed device configuration
+
+    <type client> AWS IoT Client
+    <desc client> none
     '''
     while True:
         try:
             item = q.get_nowait()
             if item is None:
-                print ("Item returned 'None' from Queue")
-                break
-        except Queue.Empty:
-            print ("Queue is empty")
-            break
+                print("Item returned 'None' from Queue")
+        except queue.Empty as empty_q:
+            print(f"Queue is empty\n{empty_q}")
         else:
-            print ('processing...')
-            processed_item = audio_processing(item)
-            print ('publishing...')
-            client.publish(channel, processed_item, 1)
+            print('analyzing...')
+            if audio_analysis_detect(item):  # if analysis meets threshold TBD
+                print('publishing...')
+                print(json.dumps(item, indent=2))
+                for each in device['channels']:
+                    client.publish(
+                        ioth.update_channel(json.dumps(each),
+                                            device['client_id']),
+                        item,
+                        1)
+        finally:
             q.task_done()
 
-def close_application(pa=False, iot_client=False, stream=False):
+
+def close_application(pa=False, c=False, s=False):
     '''
     Gracefully stop and close all open object(s) and client(s)
 
-    :type pa: pyaudio portaudio object
-    :type iot_client: AWS IoT paho client
-    :type stream: pyaudio portaudio object wrapper
+    <type pa> pyaudio portaudio object
+    <type c> AWS IoT Client
+    <type s> pyaudio portaudio object wrapper
     '''
-    print ('Closing application...')
-    if stream:
-        print ('Stopping and closing stream...')
-        stream.stop_stream()
-        stream.close()
+    print('Closing application...')
+    if s:
+        print('Stopping and closing stream...')
+        s.stop_stream()
+        s.close()
     if pa:
-        print ("Terminating Pyaudio object...")
+        print("Terminating Pyaudio object...")
         pa.terminate()
-    if iot_client:
-        print ("Stopping loop and disconnecting MQTT client...")
-        iot_client.loop_stop()
-        iot_client.disconnect()
-    print ('Application CLOSED')
-
-def create_stream_event_envelope(payload,source_id,event_type,lambda_uid):
-    '''
-    Place data into envelope and address the package for Stream
-
-    :type payload: dict object
-    :param payload: data in the following format
-    {
-        "latitude" : float<degrees>,
-        "altitude" : float<feet>,
-        "longitude": float<degrees>,
-        "flight_hex"   : str<hex code>,
-        "flight_number"   : str<flight number>,
-        "polled_timestamp" : float<timestamp>
-    }
-
-    :return:
-    :type envelope: dict object
-    :params envelope: envelope in the following format
-    {
-        "pkey"       : str<pkey>,
-        "createtime" : int<createtime>,
-        "src"        : str<source_id>,
-        "type"       : str<event_type>,
-        "data"       : dict<payload>
-    }
-    '''
-    createtime = int(round(time.time()*1000))
-    object_hash = hash(json.dumps(payload));
-    event_id = source_id+'-'+lambda_uid+'-'+str(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6)))
-    partitionKey = ':'.join(map(str,[createtime, event_type, event_id, object_hash]))
-    envelope = {
-        "pkey"       : partitionKey,
-        "createtime" : createtime,
-        "src"        : source_id,
-        "type"       : event_type,
-        "data"       : payload
-    }
-    return envelope
-
-def kinesis_put(client,data,stream_name,partition_key):
-    '''
-    Setup and put provided data into the stream
-
-    :type client: class Kinesis Client
-    :param client: valid Kinesis client object
-
-    :type data: str
-    :param data: data from json.dumps() call
-
-    :type stream_name: str
-    :param stream_name: name of the put stream
-
-    :type partition_key: str
-    :param partition_key: partition key assigned to a specific stream shard
-    '''
-    try:
-        response = client.put_record(
-            StreamName=stream_name,
-            Data=data,
-            PartitionKey=partition_key)
-        print('Added data to new record in stream:',stream_name,'partition key:',partition_key)
-        return response
-    except Exception as exc_err:
-        print ('Exception Error: kinesisPut: could not put record into stream; error:', exc_err)
+    if c:
+        print("Stopping loop and disconnecting MQTT client...")
+        c.loop_stop()
+        c.disconnect()
+    print('Application CLOSED')
+    sys.exit()
