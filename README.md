@@ -11,15 +11,15 @@ The following installations and imports are required to run this application.
 __Helpful Guides__
 
 1. [AWS IoT Development Guide](https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html): Describe the basic features and hierachy of AWS IoT
-2. [Git Guide](https://www.atlassian.com/git/tutorials): Helpful Git commands
+1. [Git Guide](https://www.atlassian.com/git/tutorials): Helpful Git commands
 
 __Installs__
 
 1. **Python 3.6** via [python software foundation](https://www.python.org/downloads/)
-2. **AWSIoTPythonSDK** via [aws-iot-device-sdk-python on github] (https://github.com/aws/aws-iot-device-sdk-python)
-- allows developers to write Python script to access / control devices via the AWS IoT platform
-2. ~~**RPI Audio Levels** via [rpi-audio-levels on github] (https://github.com/colin-guyon/rpi-audio-levels)~~
-- ~~this script also uses the GPU FFT library installed on RPi ~~ (see [link](http://www.aholme.co.uk/GPU_FFT/Main.htm))
+1. **AWSIoTPythonSDK** via [aws-iot-device-sdk-python on github](https://github.com/aws/aws-iot-device-sdk-python)
+    - allows developers to access / control devices via the AWS IoT platform
+1. ~~**RPI Audio Levels** via~~ [rpi-audio-levels on github](https://github.com/colin-guyon/rpi-audio-levels)
+    - ~~this script also uses the GPU FFT library installed on RPi~~ (see [link](http://www.aholme.co.uk/GPU_FFT/Main.htm))
 
 __Imports__
 
@@ -50,7 +50,7 @@ __Keys__
 
 __Values__
 
-- '<clientId>' in "*_topics" keys gets replaced with the actual 'clientId' key-value
+- `<clientId>` in "*_topics" keys gets replaced with the actual 'clientId' value
 
 
 ### _acu_sens_prototype.py_
